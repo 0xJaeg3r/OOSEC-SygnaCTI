@@ -1,0 +1,34 @@
+# Environment and secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+
+# Telegram session files
+sessions/
+
+# Syngnacti data
+.sygnacti/
+
+# Playwright
+playwright-report/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
