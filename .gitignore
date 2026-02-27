@@ -13,6 +13,7 @@ build/
 # Virtual environment
 venv/
 .venv/
+.sygnavenv/
 
 # Telegram session files
 sessions/
