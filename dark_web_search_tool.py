@@ -9,6 +9,20 @@ SEARCH_URLS = {
     "ahmia": "http://juhanurmihxlp77nkq76byazcldy2hlmovfu2epvl5ankdibsot4csyd.onion",
     "abiko": "http://abikoifawyrftqivkhfxiwdjcdzybumpqrbowtudtwhrhpnykfonyzid.onion/",
     "amnesia": "http://amnesia7u5odx5xbwtpnqk3edybgud5bmiagu75bnqx2crntw5kry7ad.onion/",
+    "onionland": "http://3bbad7fauom4d6sgppalyqddsqbf5u5p56b5k5uk2zxsy3d6ey2jobad.onion",
+    "torgle": "http://iy3544gmoeclh5de6gez2256v6pjh4omhpqdh2wpeeppjtvqmjhkfwad.onion",
+    "kaizer": "http://kaizerwfvp5gxu6cppibp7jhcqptavq3iqef66wbxenh6a2fklibdvid.onion",
+    "anima": "http://anima4ffe27xmakwnseih3ic2y7y3l6e7fucwk4oerdn4odf7k74tbid.onion",
+    "tornado": "http://tornadoxn3viscgz647shlysdy7ea5zqzwda7hierekeuokh5eh5b3qd.onion",
+    "tornet": "http://tornetupfu7gcgidt33ftnungxzyfq2pygui5qdoyss34xbgx2qruzid.onion",
+    "torland": "http://torlbmqwtudkorme6prgfpmsnile7ug2zm4u3ejpcncxuhpu4k2j4kyd.onion",
+    "findtor": "http://findtorroveq5wdnipkaojfpqulxnkhblymc7aramjzajcvpptd4rjqd.onion",
+    "excavator": "http://2fd6cemt4gmccflhm6imvdfvli3nf7zn6rfrwpsy7uhxrgbypvwf5fad.onion",
+    "onionway": "http://oniwayzz74cv2puhsgx4dpjwieww4wdphsydqvf5q7eyz4myjvyw26ad.onion",
+    "tor66": "http://tor66sewebgixwhcqfnp5inzp5x5uohhdy3kvtnyfxc2e5mxiuh34iid.onion",
+    "oss": "http://3fzh7yuupdfyjhwt3ugzqqof6ulbcl27ecev33knxe3u7goi3vfn2qqd.onion",
+    "torgol": "http://torgolnpeouim56dykfob6jh5r2ps2j73enc42s2um4ufob3ny4fcdyd.onion",
+    "deepsearches": "http://searchgf7gdtauh7bhnbyed4ivxqmuoat3nm6zfrg3ymkq6mtnpye3ad.onion",
 }
 
 # Search URL patterns per engine. {q} is replaced with the URL-encoded query.
@@ -16,12 +30,27 @@ SEARCH_URLS = {
 # fall back to /search/?q= in _build_search_url().
 SEARCH_PATTERNS = {
     "ahmia": "/search/?q={q}",
+    "amnesia": "/search?query={q}",
+    "onionland": "/search?q={q}",
+    "torgle": "/torgle/?query={q}",
+    "kaizer": "/search?q={q}",
+    "anima": "/search?q={q}",
+    "tornado": "/search?q={q}",
+    "tornet": "/search?q={q}",
+    "torland": "/index.php?a=search&q={q}",
+    "findtor": "/search?q={q}",
+    "excavator": "/search?query={q}",
+    "onionway": "/search.php?s={q}",
+    "tor66": "/search?q={q}",
+    "oss": "/oss/index.php?search={q}",
+    "torgol": "/?q={q}",
+    "deepsearches": "/search?q={q}",
 }
 
 MAX_RETRIES = 2
 RETRY_DELAY = 5
 DEFAULT_TIMEOUT = 90_000  # milliseconds for Playwright
-MAX_CONCURRENT = 6  # max parallel pages
+MAX_CONCURRENT = 10  # max parallel pages
 
 
 # ---- Browser management ----
