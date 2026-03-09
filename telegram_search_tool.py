@@ -105,6 +105,9 @@ async def _search_channel(api_id: int, api_hash: str, channel_id: str, keyword: 
             date = msg['date'][:10] if msg['date'] else '???'
             text_preview = msg['text'][:120].replace('\n', ' ')
             output += f"  [{date}] (msg {msg['id']}) {text_preview}\n"
+            if len(output) > 50_000:
+                output += f"\n... [truncated — {len(results)} total matches, output exceeds 50k chars]\n"
+                break
         return output
     finally:
         await client.disconnect()
@@ -156,6 +159,9 @@ async def _search_multiple_channels(api_id: int, api_hash: str, keyword: str,
             date = msg['date'][:10] if msg['date'] else '???'
             text_preview = msg['text'][:120].replace('\n', ' ')
             output += f"  [{msg['channel']}] [{date}] (msg {msg['id']}) {text_preview}\n"
+            if len(output) > 50_000:
+                output += f"\n... [truncated — {len(all_results)} total matches, output exceeds 50k chars]\n"
+                break
         return output
     finally:
         await client.disconnect()
@@ -189,14 +195,14 @@ def list_channels() -> str:
         return f"Error listing channels: {str(e)}"
 
 
-def search_channel(channel_id: str, keyword: str, limit: int = 1000,
+def search_channel(channel_id: str, keyword: str, limit: int = 100,
                    days_back: Optional[int] = None) -> str:
     """Search messages in a single Telegram channel by keyword.
 
     Args:
         channel_id: The numeric ID of the channel to search (use list_channels to find IDs).
         keyword: The search term to look for in messages.
-        limit: Maximum number of messages to scan (default 1000).
+        limit: Maximum number of messages to scan (default 100).
         days_back: Only search messages from the last N days. None searches all history.
 
     Returns:
@@ -210,14 +216,14 @@ def search_channel(channel_id: str, keyword: str, limit: int = 1000,
 
 
 def search_multiple_channels(keyword: str, channel_ids: str, depth: str = '1month',
-                              limit: int = 1000) -> str:
+                              limit: int = 100) -> str:
     """Search for a keyword across multiple Telegram channels.
 
     Args:
         keyword: The search term to look for in messages.
         channel_ids: Comma-separated channel IDs to search (e.g. "1234567,2345678,3456789").
         depth: How far back to search. One of: 1week, 1month, 3months, 6months, 1year, all (default: 1month).
-        limit: Maximum number of messages to scan per channel (default 1000).
+        limit: Maximum number of messages to scan per channel (default 100).
 
     Returns:
         str: Matching messages from all channels with channel names, dates, and text previews.

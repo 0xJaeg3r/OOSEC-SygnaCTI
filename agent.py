@@ -1,18 +1,20 @@
 import os
-import asyncio
 from pathlib import Path
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
 from agno.agent import Agent
 from agno.db.sqlite import SqliteDb
-from agno.models.openai import OpenAIChat
+from agno.models.openai import OpenAIChat, OpenAIResponses
 from agno.models.anthropic import Claude
 from agno.models.google import Gemini
 from agno.team.team import Team
+from agno.team.mode import TeamMode
 from agno.tools.tavily import TavilyTools
 from agno.tools.file import FileTools
-from tools import CTI_TOOLS
+from tools import CTI_TOOLS, TELEGRAM_SEARCH_TOOLS
+from dark_web_search_tool import search_dark_web, browse_onion_site
 from agno.tools.mcp import MultiMCPTools, MCPTools
+from agno.compression.manager import CompressionManager
 from prompt import *
 load_dotenv()
 
@@ -70,10 +72,18 @@ class CtiAgentSystem:
             memory_path = SYGNA_DIR / "agent_memory.db"
             self.memory_db = SqliteDb(db_file=str(memory_path))
 
-    # Create specialized agents and team        
+     # Token limit management
+        self.compression_manager = CompressionManager(
+            model=OpenAIResponses(id="gpt-4o-mini"),
+            compress_tool_results=True,
+            compress_tool_results_limit=2,
+            compress_token_limit=5000,
+        )
+
+    # Create specialized agents and team
         self._create_all_agents()
         self._create_cti_team()
-    
+        
     ##  Create mind for agent - Create model selector
     def _get_model(self, model_id: str):
         """
@@ -136,6 +146,7 @@ class CtiAgentSystem:
             
         return tools
     
+   
     ## Create specialized CTI agents
 
     def _create_all_agents(self):
@@ -168,34 +179,79 @@ class CtiAgentSystem:
             name="Telegram Recon Specialist",
             role="Specializes in performing searches on telegram channels for threat intel",
             instructions=[TELEGRAM_AGENT_PROMPT],
-            add_datetime_to_context= True,
-            **agent_kwargs
+            model=self.model,
+            tools=TELEGRAM_SEARCH_TOOLS,
+            add_datetime_to_context=True,
+            markdown=True,
+            compression_manager= self.compression_manager
         )
 
-        self.dark_web_investigation_agent = Agent(
-            name="Dark Web Investigation Agent",
-            role="Perform dark web research and investigations",
-            instructions=[DARK_WEB_INVESTIGATION_AGENT_PROMPT],
-            add_datetime_to_context= True,
-            **agent_kwargs
+        # Dark web pipeline: 4 focused agents with scoped tools
+        # Manager delegates to them in order: refiner -> searcher -> filter -> browser
 
+        self.dark_web_query_refiner = Agent(
+            name="Dark Web Query Refiner",
+            role="Optimize search queries for dark web search engines",
+            instructions=[DARK_WEB_QUERY_REFINER_PROMPT],
+            model=self.model,
+            markdown=False,
+            compression_manager= self.compression_manager
+        )
+
+        self.dark_web_searcher = Agent(
+            name="Dark Web Searcher",
+            role="Execute dark web searches and return raw results",
+            instructions=[DARK_WEB_SEARCHER_PROMPT],
+            model=self.model,
+            tools=[search_dark_web],
+            add_datetime_to_context=True,
+            markdown=False,
+            compression_manager= self.compression_manager
+        )
+
+        self.dark_web_filter = Agent(
+            name="Dark Web Results Filter",
+            role="Triage and select the most relevant dark web search results",
+            instructions=[DARK_WEB_FILTER_PROMPT],
+            model=self.model,
+            markdown=False,
+            compression_manager= self.compression_manager
+        )
+
+        self.dark_web_browser = Agent(
+            name="Dark Web Browser",
+            role="Browse .onion sites and extract threat intelligence",
+            instructions=[DARK_WEB_BROWSER_PROMPT],
+            model=self.model,
+            tools=[browse_onion_site],
+            add_datetime_to_context=True,
+            markdown=True,
+            compression_manager= self.compression_manager
+        )
+
+
+        self.web_search_agent = Agent(
+            name="Web Search Agent",
+            role="Cyber Threat Intelligence Web search",
+            instructions=[WEB_SEARCH_AGENT],
+            model=self.model,
+            tools=[TavilyTools()],
+            add_datetime_to_context=True,
+            markdown=True,
+            compression_manager= self.compression_manager
         )
 
         self.reporting_agent = Agent(
             name="CTI Reporter",
             role="Cyber Threat Intelligence Documentation",
             instructions=[CTI_REPORTING_AGENT],
+            model=self.model,
             add_datetime_to_context=True,
-            **agent_kwargs,                 
+            markdown=True,
+            
         )
 
-        self.web_search_agent = Agent(
-            name="Web Search Agent",
-            role="Cyber Threat Intelligence Web search",
-            instructions=[WEB_SEARCH_AGENT],
-            add_datetime_to_context=True,
-            **agent_kwargs,
-        )
+
 
     
     def _create_cti_team(self):
@@ -212,17 +268,22 @@ class CtiAgentSystem:
         #Team configuration - always add history to context for persistent conversion
         team_kwargs = {
             "name":"CTI Team",
+            "mode": TeamMode.coordinate,
             "model": self.model,
             "respond_directly": False,
             "members": [
                 self.web_search_agent,
                 self.telegram_search_agent,
                 self.reporting_agent,
-                self.dark_web_investigation_agent,
+                self.dark_web_query_refiner,
+                self.dark_web_searcher,
+                self.dark_web_filter,
+                self.dark_web_browser,
             ],
             "markdown": True,
             "instructions": [CTI_MANAGER_AGENT_PROMPT],
             "show_members_responses": True,
+            "share_member_interactions": True, # Members receive previous members' outputs from current run
             "add_history_to_context": True, # CRITICAL: ALways preserve conversation history
             "debug_mode": True,
             "debug_level": 2,
@@ -244,7 +305,8 @@ class CtiAgentSystem:
             stream=stream,
             session_id=self.session_id,
             show_full_reasoning=show_full_reasoning,
-            stream_events=stream_events
+            stream_events=stream_events,
+            
         )
     
     def get_agent(self, agent_type:  str):
@@ -252,8 +314,11 @@ class CtiAgentSystem:
         agents = {
             "telegram_search": self.telegram_search_agent,
             "web_search": self.web_search_agent,
-            "reports":self.reporting_agent,
-            "dark_web_investigation_agent":self.dark_web_investigation_agent,
+            "reports": self.reporting_agent,
+            "dark_web_query_refiner": self.dark_web_query_refiner,
+            "dark_web_searcher": self.dark_web_searcher,
+            "dark_web_filter": self.dark_web_filter,
+            "dark_web_browser": self.dark_web_browser,
         }
         return agents.get(agent_type.lower())
 
