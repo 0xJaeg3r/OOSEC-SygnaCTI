@@ -14,21 +14,22 @@ A CTI Manager agent receives your query and delegates tasks to specialized agent
                                      |
                     delegates to team members
                                      |
-         +---------------------------+---------------------------+
-         |                 |                   |                 |
-+--------v-------+ +------v--------+ +--------v-------+ +------v--------+
-|   Telegram     | |   Web Search  | |   Dark Web     | |     CTI       |
-|   Recon        | |   Agent       | |   Investigator | |   Reporter    |
-|   Specialist   | |               | |                | |               |
-+----------------+ +---------------+ +----------------+ +---------------+
-| list_channels  | | Tavily web    | | search_dark_web| | Synthesizes   |
-| search_channel | | search API    | | browse_onion_  | | findings into |
-| search_multiple| |               | | site           | | structured    |
-| _channels      | |               | |                | | reports       |
-+----------------+ +---------------+ +----------------+ +---------------+
-        |                  |                  |
-   Telegram API       Public Web         Tor Network
-   (Telethon)         (Tavily)        (Playwright + SOCKS5)
+    +----------------+---------------+---------------+----------------+
+    |                |               |               |                |
++---v---+      +----v----+    +-----v------+   +----v----+    +------v-----+
+|Telegram|     |   Web   |    | Dark Web   |   |   CTI   |    | Dark Web   |
+| Recon  |     | Search  |    |  Pipeline  |   | Reporter|    |  Browser   |
++--------+     +---------+    +-----+------+   +---------+    +------------+
+|list_   |     |Tavily   |          |          |Synthesize|   |browse_onion|
+|channels|     |web      |    +-----+-----+   |findings  |   |_site       |
+|search_ |     |search   |    |     |     |   |into      |   +------------+
+|channel |     |API      |    |     |     |   |reports   |
++--------+     +---------+    v     v     v   +---------+
+    |               |       Query Filter Searcher
+Telegram API   Public Web  Refiner       |search_dark_web
+(Telethon)     (Tavily)                  |
+                                      Tor Network
+                                   (Playwright + SOCKS5)
 ```
 
 ### Agent roles
@@ -38,7 +39,10 @@ A CTI Manager agent receives your query and delegates tasks to specialized agent
 | **CTI Manager** | Receives queries, delegates to specialists, resolves conflicting intel, delivers final report | `delegate_task_to_member` (Agno built-in) |
 | **Telegram Recon Specialist** | Searches Telegram channels for IOCs, threat actor chatter, breach announcements | `list_channels`, `search_channel`, `search_multiple_channels` |
 | **Web Search Agent** | Corroborates and enriches findings from vendor advisories, CVE databases, government alerts | Tavily web search |
-| **Dark Web Investigation Agent** | Queries .onion search engines, browses dark web sites, extracts intel from forums/marketplaces | `search_dark_web`, `browse_onion_site` |
+| **Dark Web Query Refiner** | Optimizes search queries for dark web search engines | _(no tools — LLM-only)_ |
+| **Dark Web Searcher** | Executes searches across .onion search engines | `search_dark_web` |
+| **Dark Web Results Filter** | Triages and selects the most relevant dark web results | _(no tools — LLM-only)_ |
+| **Dark Web Browser** | Browses .onion sites and extracts threat intelligence | `browse_onion_site` |
 | **CTI Reporter** | Produces structured intelligence reports with executive summaries, MITRE ATT&CK mappings, and recommendations | File tools |
 
 ### Report structure
@@ -56,12 +60,13 @@ Each finding includes a confidence level (High / Medium / Low) based on source r
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.12+
 - At least one LLM API key (OpenAI, Anthropic, or Google)
 - Telegram API credentials (for Telegram collection)
 - Tor service (for dark web collection)
 - Playwright + Chromium (for dark web browsing)
 - Tavily API key (for web search corroboration)
+- `wl-clipboard` (Wayland) or `xclip` (X11) for TUI clipboard support (optional)
 
 ## Setup
 
@@ -146,7 +151,54 @@ Enter the verification code sent to your phone. If 2FA is enabled, you'll be pro
 
 ## Usage
 
-### CLI (recommended)
+### TUI (recommended)
+
+```bash
+python sygna_tui.py
+```
+
+The terminal UI provides a full interactive experience:
+
+- **Real-time activity log** — see which agents are active, what tools they're calling, and delegation status as it happens
+- **Live streaming** — the final report streams into the chat with full **markdown rendering** (headers, tables, bullet lists, code blocks)
+- **Agent sidebar** — tree view of all agents with live status indicators (idle/running/completed)
+- **IOC extraction** — CVEs, IPs, domains, and hashes are automatically extracted from reports and displayed in a findings panel
+- **Model selection** — switch models at runtime via `/model` or the modal picker
+- **Clipboard support** — highlight text to copy (requires `wl-clipboard` on Wayland or `xclip` on X11)
+
+```bash
+# Start with a specific model
+python sygna_tui.py --model claude-opus-4-6
+
+# Start with memory and storage enabled
+python sygna_tui.py --memory --storage
+
+# Start with MCP support
+python sygna_tui.py --mcp
+```
+
+#### Keybindings
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Send message |
+| `Shift+Enter` | New line in input |
+| `F1` | Help screen |
+| `Esc` | Cancel running assessment |
+| `Ctrl+Q` / `Ctrl+C` | Quit |
+| `Tab` | Switch panels |
+| `↑` / `↓` | Navigate agent tree |
+
+#### Chat commands
+
+| Command | Description |
+|---------|-------------|
+| `/model [id]` | Switch LLM model (opens picker if no ID given) |
+| `/status` | Show current configuration |
+| `/clear` | Clear chat history and findings |
+| `/help` | Show help screen |
+
+### CLI
 
 ```bash
 python sygna_cli.py
@@ -358,9 +410,12 @@ python telegram_search_tool.py search 1234567 "CVE-2024" --json
 
 ```
 syngnacti/
+├── sygna_tui.py              # Terminal UI — Textual-based TUI with streaming, activity log, markdown reports
+├── assets/
+│   └── sygna_tui.tcss        # TUI stylesheet
 ├── sygna_cli.py              # Interactive CLI — model switching, memory, storage, MCP servers
 ├── agent.py                  # CtiAgentSystem class — agent creation, team orchestration, model selection
-├── prompt.py                 # Role prompts for all 5 agents (manager + 4 specialists)
+├── prompt.py                 # Role prompts for all 8 agents (manager + 7 specialists)
 ├── tools.py                  # Tool registry — aggregates CLI, Telegram, and dark web tools
 ├── telegram_search_tool.py   # Telegram OSINT — Telethon-based channel search (CLI + agent tool)
 ├── dark_web_search_tool.py   # Dark web OSINT — Playwright + Tor parallel search engine querying
@@ -370,6 +425,22 @@ syngnacti/
 ```
 
 ## Troubleshooting
+
+### TUI: clipboard "Copied" notification but nothing in clipboard
+
+Install a system clipboard utility:
+
+```bash
+# Wayland
+sudo apt install wl-clipboard
+
+# X11
+sudo apt install xclip
+```
+
+### TUI: no activity log during assessment
+
+Make sure you're running with `stream_events=True` (this is the default in the TUI). If you see "Running assessment..." with no activity lines, the agent system may not be emitting intermediate events — try a different model.
 
 ### Dark web search: "unreachable after 3 attempts"
 
