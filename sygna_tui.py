@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Syngnacti CTI TUI — Terminal User Interface for the Cyber Threat Intelligence Agent.
-Built with Textual, architecture adapted from Strix TUI.
+Built with Textual, architecture.
 """
 
 import argparse
@@ -167,7 +167,7 @@ class SplashScreen(Static):  # type: ignore[misc]
 
     def _welcome(self) -> Text:
         t = Text("Welcome to ", style=Style(color="white", bold=True))
-        t.append("Syngnacti", style=Style(color=PRIMARY, bold=True))
+        t.append("SyngnaCTI", style=Style(color=PRIMARY, bold=True))
         t.append("!", style=Style(color="white", bold=True))
         return t
 
